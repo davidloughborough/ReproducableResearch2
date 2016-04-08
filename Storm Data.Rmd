@@ -1,0 +1,142 @@
+---
+title: "Untitled"
+output: html_document
+---
+#Synopsis
+
+This projects aim is to analyze the affects of different storms, and the economic and public health problems for communities and municipalities. The data used for the analysis is from the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+
+Going in the main questions we sought out to answer were:
+
+1.Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+
+2.Across the United States, which types of events have the greatest economic consequences?
+
+After our analysis, we can answer these questions.
+
+1.Tornados are the most harmful to population health.
+
+2.Floods pose the greatest economic consequences.
+
+#Data Processing
+
+First, we must load in the data set.
+```{r}
+NOAA <- read.csv("~/Desktop/repdata-data-StormData.csv")
+```
+
+Next, we are going to go through and select the data that we need from the original data set regarding personal injury and economic affects.
+
+```{r}
+sdNOAA <- data.frame(EVTYPE=NOAA$EVTYPE, FATALITIES=NOAA$FATALITIES, INJURIES=NOAA$INJURIES, PROPDMG=NOAA$PROPDMG, PROPDMGEXP=NOAA$PROPDMGEXP, CROPDMG=NOAA$CROPDMG, CROPDMGEXP=NOAA$CROPDMGEXP)
+```
+
+We want to calculate what the actual property damage value is, using the code for H (hundreds), K (thousands), M (millions), and B (billions).  This is done using the PROPDMG and PROPDMGEXP columns.
+
+```{r}
+sdNOAA$PROPDMGVAL = 0
+sdNOAA[sdNOAA$PROPDMGEXP == "H", ]$PROPDMGVAL = sdNOAA[sdNOAA$PROPDMGEXP == "H", ]$PROPDMG * 10^2
+sdNOAA[sdNOAA$PROPDMGEXP == "K", ]$PROPDMGVAL = sdNOAA[sdNOAA$PROPDMGEXP == "K", ]$PROPDMG * 10^3
+sdNOAA[sdNOAA$PROPDMGEXP == "M", ]$PROPDMGVAL = sdNOAA[sdNOAA$PROPDMGEXP == "M", ]$PROPDMG * 10^6
+sdNOAA[sdNOAA$PROPDMGEXP == "B", ]$PROPDMGVAL = sdNOAA[sdNOAA$PROPDMGEXP == "B", ]$PROPDMG * 10^9
+```
+
+Now, we can do the same thing for crop data.
+
+```{r}
+sdNOAA$CROPDMGVAL = 0
+sdNOAA[sdNOAA$CROPDMGEXP == "H", ]$CROPDMGVAL = sdNOAA[sdNOAA$CROPDMGEXP == "H", ]$CROPDMG * 10^2
+sdNOAA[sdNOAA$CROPDMGEXP == "K", ]$CROPDMGVAL = sdNOAA[sdNOAA$CROPDMGEXP == "K", ]$CROPDMG * 10^3
+sdNOAA[sdNOAA$CROPDMGEXP == "M", ]$CROPDMGVAL = sdNOAA[sdNOAA$CROPDMGEXP == "M", ]$CROPDMG * 10^6
+sdNOAA[sdNOAA$CROPDMGEXP == "B", ]$CROPDMGVAL = sdNOAA[sdNOAA$CROPDMGEXP == "B", ]$CROPDMG * 10^9
+```
+
+With the data loaded and ready to be analyzed in numerical fashion for both injuries and economic harm.  We can use the EVTYPE variables and graphs to see what type of storm was the most harmful across the country.
+
+First, lets see which type of storm was most deadly.  We will look at the Top 10, so that graphs are not too crowded and we are seeking to find the most dangerous storms.
+
+```{r}
+fatalities_storm <- aggregate(FATALITIES ~ EVTYPE, data=sdNOAA, sum)
+fatalities_storm <- fatalities_storm[order(-fatalities_storm$FATALITIES), ][1:10, ]
+fatalities_storm$EVTYPE <- factor(fatalities_storm$EVTYPE, levels = fatalities_storm$EVTYPE)
+print(fatalities_storm)
+```
+
+As can be seen from this Tornados cause the most fatalities of all storms.  Let's look at a histogram to contextualize the differences.
+
+```{r}
+library(ggplot2)
+ggplot(fatalities_storm, aes(x = EVTYPE, y = FATALITIES)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    xlab("Event Type") + ylab("Fatalities") + ggtitle("Fatalities Caused by Top 10 Weather Events")
+```
+
+The next time of damage we will look at is injuries.  We will follow a similar system to create a top 10 list in terms of damage done.
+
+```{r}
+injuries_storm <- aggregate(INJURIES ~ EVTYPE, data=sdNOAA, sum)
+injuries_storm <- injuries_storm[order(-injuries_storm$INJURIES), ][1:10, ]
+injuries_storm$EVTYPE <- factor(injuries_storm$EVTYPE, levels = injuries_storm$EVTYPE)
+print(injuries_storm)
+```
+
+Again Tornados cause the most damage in terms of injuries, with nearly 85,000 more injuries than the second ranked Thunderstorm Wind.  Again, let's look at a histogram for comparisons.
+
+```{r}
+ggplot(injuries_storm, aes(x = EVTYPE, y = INJURIES)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    xlab("Event Type") + ylab("Injuries") + ggtitle("Injuries Caused by top 10 Weather Events")
+```
+
+We have established Tornados as the most dangerous in terms of human health, but we also want to learn want types of storms are most harmful economically.
+
+We will first look at Property Damage. To do this, we will aggregate the total property damage done by each type of storm and again compile a Top 10 list.
+
+```{r}
+prop_damages <- aggregate(PROPDMGVAL ~ EVTYPE, data=sdNOAA, sum)
+names(prop_damages) = c("EVTYPE", "PROPDAMAGE")
+prop_damages <- prop_damages[order(-prop_damages$PROPDAMAGE), ][1:10, ]
+prop_damages$EVTYPE <- factor(prop_damages$EVTYPE, levels = prop_damages$EVTYPE)
+print(prop_damages)
+```
+
+Floods here top the list, so let's see using a histogram a visual comparison.
+
+```{r}
+ggplot(prop_damages, aes(x = EVTYPE, y = PROPDAMAGE)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    xlab("Event Type") + ylab("Property Damages ($)") + ggtitle("Property Damages Caused by top 10 Weather Events")
+```
+
+Finally, we will look at crop damages, compiled as we did before with property damage.
+
+```{r}
+crop_damages <- aggregate(CROPDMGVAL ~ EVTYPE, data=sdNOAA, sum)
+names(crop_damages) = c("EVTYPE", "CROPDAMAGE")
+crop_damages <- crop_damages[order(-crop_damages$CROPDAMAGE), ][1:10, ]
+crop_damages$EVTYPE <- factor(crop_damages$EVTYPE, levels = crop_damages$EVTYPE)
+print(crop_damages)
+```
+
+Here droughts take over the number 1 spot bumping Floods to second.  Let's again get a visual comparison.
+
+```{r}
+ggplot(crop_damages, aes(x = EVTYPE, y = CROPDAMAGE)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    xlab("Event Type") + ylab("Crop Damages ($)") + ggtitle("Crop Damages Caused by top 10 Weather Events")
+```
+
+There is no clear cut leader in terms of damages as there was before with human harm.  Thus, lets make a combined damages sum, find the top 10 storms in terms of total damages, and provide a historgram representation.
+
+```{r}
+damages <- aggregate(PROPDMGVAL + CROPDMGVAL ~ EVTYPE, data=sdNOAA, sum)
+names(damages) = c("EVTYPE", "DAMAGE")
+damages <- damages[order(-damages$DAMAGE), ][1:10, ]
+damages$EVTYPE <- factor(damages$EVTYPE, levels = damages$EVTYPE)
+print(damages)
+ggplot(damages, aes(x = EVTYPE, y = DAMAGE)) + 
+    geom_bar(stat = "identity", fill = "red") + 
+    xlab("Event Type") + ylab("Damages ($)") + ggtitle("Total Damages Caused by top 10 Weather Events")
+```
+
+Through this we can see that Floods cause by far the most economic harm of all storm types.
